@@ -1,0 +1,642 @@
+---
+title: "DM_final_report- 影響學生成績表現因素資料分析"
+author: "陳俐卉"
+date: "2023-06-02"
+output:  
+  flexdashboard::flex_dashboard:
+  source_code: embed
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(GGally)
+library(ggplot2)
+library(caTools)
+library(caret)
+library(class)
+library(arules)
+library(arulesViz)
+####取用dataset####
+#setwd("C:/Users/陳俐卉/Desktop/R_Datamining/student_alcohol_dataset")
+student_data_all=read.csv("student-mat.csv")
+#View(student_data_all)
+```
+
+# 議題描述&資料集介紹 {data-icon="fa-hand-o-right"}
+<font size=4>**動機**:</font>\
+考試成績一直都是衡量學習績效的指標之一，甚至是升學主要管道。<br>
+「教育平等」一直是社會發展目標，然而除了學生本身的努力與天份外，許多外在因素也會影響學生成績表現。<br>
+<font color="red">究竟學生的成績還會受到哪些外在因素影響?</font>\
+
+<font size=4>**資料表介紹** </font> 
+
+使用資料集：Student Alcohol Consumption (2008)\
+來源:Kaggle\
+作者:UCI MACHINE LEARNING\
+介紹:對葡萄牙的兩所中學參與數學和葡萄牙語課程的學生進行調查，\
+此次分析取用數學成績資料集，\
+內容包含性別、年齡、家庭背景、居住環境、生活習慣、飲酒頻率和健康狀況等。\
+這個資料集有33個欄位、395位學生的樣本量。\
+
+資料集來源網址:<https://www.kaggle.com/datasets/uciml/student-alcohol-consumption>
+
+<font size=4>**欄位介紹**</font>\
+
+| 欄位名稱                  | 型態      | 簡介               |
+|---------------------------|-----------|--------------------|
+| school                    | binary    | 學校(G/M)          |
+| sex                       | binary    | 學生的性別（F - 女性或M - 男性）           |
+| age                       | numeric   | 學生年齡           |
+| address                   | binary    | 學生的家庭住址類型（U - 城市或R - 農村)           |
+| famsize                   | binary    | 家庭規模（LE3 - 小於或等於3 或 GT3 - 大於3）           |
+| Pstatus                   | binary    | 父母的同居狀態(T - 共同生活或A - 分開）           |
+| Medu                      | numeric   | 母親的教育程度（0. 無、1. 小學教育（4年級）、2. 5~9年級、3. 中等教育、4. 高等教育）           |
+| Fedu                      | numeric   | 父親的教育程度（0. 無、1. 小學教育（4年級）、2. 5~9年級、3. 中等教育、4. 高等教育）           |
+| Mjob                      | character | 母親的工作（老師、 健康護理相關、民事服務（例如行政或警察）、 at_home或其他）           |
+| Fjob                      | character | 父親的工作（老師、 健康護理相關、民事服務（例如行政或警察）、 at_home或其他）           |
+| reason                    | character | 選擇這所學校的理由（家、學校聲譽、課程偏好或其他）|
+| guardian                  | character | 學生的監護人（母親、父親或其他）          |
+| traveltime                | numeric   | 學校&家裡通勤時間（1. 15分鐘、2. 15~30分鐘、3. 30分鐘~1小時、4. 1小時） |
+| studytime                 | numeric   | 每週自主學習時間（1. 2小時、2. 2~5小時、3. 5~10小時，4. 10小時）|
+| failures                  | numeric   | 過去課程失敗的數量(沒通過該課程)|
+| schoolsup                 | binary    | 額外的教育支持（是或否）           |
+| famsup                    | binary    | 家庭教育的支持（是或否）           |
+| paid                      | binary    | 課程科目中的額外付費課程（是或否）|
+| activities                | binary    | 課外活動（是或否）           |
+| nursery                   | binary    | 上幼兒園（是或否）           |
+| higher                    | binary    | 想接受高等教育（是或否）          |
+| internet                  | binary    | 家庭上網（是或否）           |
+| romantic                  | binary    | 有沒有戀愛的關係（是或否）           |
+| famrel                    | numeric   | 家庭關係品質（從1.非常差\~5.優秀） |
+| freetime                  | numeric   | 放學後的空閒時間（從1.非常低\~5.非常高） |
+| goout                     | numeric   | 和朋友一起出去玩的頻率（從1.非常低\~5.非常高） |
+| Dalc                      | numeric   | 工作日飲酒量（從1.非常低\~5.非常高） |
+| Walc                      | numeric   | 周末飲酒量（從1.非常低\~5.非常高） |
+| health                    | numeric   | 健康程度（從1.非常差\~5.非常好） |
+| absences                  | numeric   | 缺課次數（0\~93） |
+| G1                        | numeric   | 第一階段成績（0\~20） |
+| G2                        | numeric   | 第二階段成績（0\~20） |
+| G3                        | numeric   | 最終成績（0\~20） |
+
+
+# 檢查資料&整理 {data-icon="fa-bar-chart"}
+<style>
+.scrollable {
+  height: 100%;  /* 設置容器的高度 */
+  overflow-y: scroll;  /* 启用垂直滾動 */
+}
+</style>
+
+<div class="scrollable">
+查看資料內容
+```{r echo=FALSE}
+####檢查資料####
+gmeans <- (student_data_all$G1+student_data_all$G2+student_data_all$G3)/3
+student_data <- cbind(student_data_all,gmeans)
+View(student_data)
+summary(student_data)
+```
+->資料大多為 類別型 & 1~5  level的數值型變數\
+查看資料型態&檢查資料
+```{r echo=FALSE}
+str(student_data)
+sum_null <- 0
+for (i in 1:34) {
+  for (j in 1:395) {
+    if(is.null(student_data[j,i])){
+      sum_null <- sum_null+1
+    }
+  }
+}
+sum_null <- paste("空值數量:",sum_null)
+print(sum_null)  #檢查空值
+sum(is.na(student_data))   #印出缺失值欄位的數量
+#which(is.na(student_data))  #印出哪幾個欄位缺值
+```
+->檢查資料是否有空值和缺失值並印出，此資料集無空值&缺失值
+</div>
+
+# 檢定&迴歸模型-數值型欄位 {data-icon="fa-bar-chart"}
+<div class="scrollable">
+<font size=4>**相關係數矩陣** </font>
+\
+與成績表現之相關性:\
+```{r echo=FALSE}
+####作檢定####
+#查看相關係數
+target_column <- "gmeans"  # 將 "target" 替換為你的目標欄位名稱
+# 選取其他欄位
+#other_columns <- setdiff(names(student_data), target_column)
+# 計算相關係數矩陣
+cor_matrix <- cor(student_data[, c(3,7,8,13:15,24:30)], student_data[, target_column])
+cor_matrix_two <- cor(student_data[, c(3,7,8,13:15,24:30)])
+# 輸出相關係數矩陣
+print(cor_matrix)
+```
+->可以看到與成績表現之相關性如上\
+負相關 : 過去課程失敗數量>與朋友出遊頻率>年齡>到學校通勤時間\
+正相關 : 母親教育程度>父親教育程度>自主讀書時間\
+\
+兩欄位之相關性:
+```{r echo=FALSE}
+print(cor_matrix_two)
+```
+1.工作日飲酒量&周末飲酒量相關性較高\
+2.母親教育程度&父親教育程度相關性也偏高\
+
+<font size=4>**anova-檢查高相關性欄位是否對成績有影響** </font>
+\
+飲酒量&數學成績表現anova檢定:\
+```{r echo=FALSE}
+
+####anova-檢查高相關性欄位是否對成績有影響####
+aov_result<-aov(gmeans~Walc,data=student_data)
+summary(aov_result)
+aov_result<-aov(gmeans~Dalc,data=student_data)
+summary(aov_result)
+```
+-工作日飲酒量&周末飲酒量對於學生成績表現較無差異\
+->怕影響模型準確度，可不納入迴歸模型預測\
+\
+父、母親教育程度&數學成績表現anova檢定:\
+```{r echo=FALSE}
+aov_result<-aov(gmeans~Fedu,data=student_data)
+summary(aov_result)
+aov_result<-aov(gmeans~Medu,data=student_data)
+summary(aov_result)
+```
+-母親教育程度&父親教育程度對於學生成績表現有顯著差異\
+->須納入迴歸模型預測\
+\
+<font size=4>**迴歸模型** </font>\
+所有數值型變數預測(僅移除Dalc、Walc):
+```{r echo=FALSE}
+####迴歸模型####
+#全變數
+Reg_model <- lm(gmeans~age+Medu+Fedu+traveltime+studytime+failures+famrel+freetime+goout+health+absences,data=student_data)
+summary(Reg_model)
+```
+因Dalc&Walc具高相關性但不影響成績，故可排除。\
+將所有數值型欄位考慮進來，pvalue非常小，模型解釋力偏低。\
+\
+篩選出相關性高的變數預測:\
+```{r echo=FALSE}
+#相關性高的變數(移除低相關欄位)
+Reg_model_new <- lm(gmeans~age+Medu+Fedu+failures+traveltime+goout,data=student_data)
+summary(Reg_model_new)
+```
+pvalue更小，模型解釋力仍低。\
+
+<font size=4><font color="blue">**小結** </font></font>\
+1.  迴歸模型預測解釋力低，推測較不適用於此資料集，因數據多為分等級(Level)的資料，且類別型欄位多，無法由數值型欄位預測成績表現。\
+2.  父&母親教育程度、與朋友出遊頻率對學生成績最有影響。\
+3.  接著對類別型欄位作檢定分析，查看是否有影響成績表現較為突出的欄位。\
+  
+
+</div>
+# 檢定-類別型欄位 {data-icon="fa-bar-chart"}
+<div class="scrollable">
+<font size=4>**性別** </font>\
+看性別會不會影響成績:\
+F檢定 : \
+```{r echo=FALSE, fig.height=6,fig.width=9}
+#### t檢定####
+#看性別會不會影響成績
+stu_female <- filter(student_data,sex=="F")
+stu_male <- filter(student_data,sex=="M")
+var.test(x = stu_female$gmeans, y = stu_male$gmeans)
+```
+->var1 = var2 落在接受域\
+\
+T檢定 :\
+```{r echo=FALSE}
+t_test_result <- t.test(student_data[,"gmeans"] ~ student_data[,"sex"], data = student_data,var.equal=TRUE)
+t_test_result
+```
+->P  value<0.05，故性別在數學成績表現上有差異。\
+```{r echo=FALSE}
+boxplot(student_data[,"gmeans"] ~ student_data[,"sex"], col="lightblue" ,main="Math Score" ,ylab="")
+
+#sex
+ggplot(data = student_data,
+       mapping = aes(x = G3,y = gmeans,color = sex))+
+  geom_point() + 
+  stat_ellipse(level = 0.95,geom = "polygon",
+               aes(fill = sex),
+               alpha = 0.2)+
+  theme_bw()
+```
+\
+->從盒型圖和點狀圖可看出男生略高於女生成績表現。\
+\
+<font size=4>**居住地** </font>\
+看居住地(都市和鄉村)會不會影響成績\
+F檢定:\
+```{r echo=FALSE}
+#看居住地(都市和鄉村)會不會影響成績
+stu_radd <- filter(student_data,address=="R")
+stu_uadd <- filter(student_data,address=="U")
+var.test(x = stu_radd$gmeans, y = stu_uadd$gmeans)
+```
+->var1 = var2 落在接受域\
+\
+T檢定 : \
+```{r echo=FALSE}
+t_test_result <- t.test(student_data[,"gmeans"] ~ student_data[,"address"], data = student_data,var.equal=TRUE)
+t_test_result
+```
+->P  value<0.05，故居住地在數學成績表現上有差異。\
+```{r echo=FALSE}
+boxplot(student_data[,"gmeans"] ~ student_data[,"address"], col="lightblue" ,main="Math Score" ,ylab="")
+
+#address
+ggplot(data = student_data,
+       mapping = aes(x = G3,y = gmeans,color = address))+
+  geom_point() + 
+  stat_ellipse(level = 0.95,geom = "polygon",
+               aes(fill = address),
+               alpha = 0.2)+
+  theme_bw()
+```
+\
+->從盒型圖和點狀圖可看出居住地在都市略高於鄉村成績表現。\
+\
+<font size=4>**anova-父、母親工作類別對成績之影響** </font>\
+母工作類別:
+```{r echo=FALSE}
+####類別型-anova、knn####
+
+#母工作類別
+aov_result<-aov(gmeans~Mjob,data=student_data)
+summary(aov_result)
+```
+->母親工作類別對於學生成績表現有差異。\
+事後檢定:\
+```{r echo=FALSE}
+#事後檢定:想知道誰不一樣，Tukey可以同時滿足比較才不會一直損失信心水準
+TukeyResult <- TukeyHSD(aov_result,conf.level = .99)
+TukeyResult
+```
+->從事健康護理相關和從事居家工作差異最大。\
+
+畫圖:\
+```{r echo=FALSE}
+par(mfrow=c(1,1))
+boxplot(student_data$gmeans~student_data$Mjob, col="lightblue",main="Mjob",ylab="")
+plot(TukeyResult, las=2)
+
+ggplot(data = student_data,
+       mapping = aes(x = G1,y = G2,color = Mjob))+
+  geom_point() + 
+  stat_ellipse(level = 0.95,geom = "polygon",
+               aes(fill = Mjob),
+               alpha = 0.2)+
+  theme_bw()
+#盒形圖
+Myboxplot_stu <- function(InXidx){
+  boxplot(student_data[,InXidx]~student_data$Mjob,
+          col=c(2,3,4,5,6),
+          ylab = "",
+          xlab = "",
+          las=1, main=names(student_data)[InXidx])
+}
+par(mfrow=c(2, 2))
+lapply(c(31:34),FUN = Myboxplot_stu)
+```
+\
+->母親職業為健康護理相關對於學生成績表現最好。\
+->母親從事居家工作對於學生成績表現最差。\
+
+knn分類預測:\
+```{r echo=FALSE}
+#分類
+TrainFlag <- sample.split(student_data$Mjob,
+                          SplitRatio = 0.75)
+stu_train <- subset(student_data,TrainFlag==TRUE)
+stu_test <- subset(student_data,TrainFlag==FALSE)
+
+table(student_data$Mjob,TrainFlag)
+
+NormalParam <- preProcess(stu_train[,31:34])
+stu_train_scaleByTrain <- predict(NormalParam,stu_train[,31:34])
+stu_test_scaleByTrain <- predict(NormalParam,stu_test[,31:34])
+
+stu_Mjob_predict <- knn(train = stu_train_scaleByTrain,
+                            test = stu_test_scaleByTrain,
+                            cl = factor(stu_train[,9]),
+                            k = 5,
+                            prob = TRUE)
+
+stu_test_ConMatrix <- table(stu_test$Mjob,stu_Mjob_predict)
+stu_test_Accuracy <- sum(diag(stu_test_ConMatrix))/sum(stu_test_ConMatrix)  #對角/全部加總
+#k-fold cross validation
+foldflag <- createFolds(y = student_data$Mjob,
+                        k=20)
+
+All_pred_Accuracy <- lapply(foldflag,FUN = function(dataidx){
+  fold_train <- student_data[-dataidx,]
+  fold_test <- student_data[dataidx,]
+  fold_pred <- knn(train = fold_train[,31:34],
+                   test = fold_test[,31:34],
+                   cl = fold_train[,9],
+                   k = 5,
+                   prob = TRUE)
+  fold_ConMatrix <- table(fold_test[,9],fold_pred)
+  fold_Accuracy <- sum(diag(fold_ConMatrix))/sum(fold_ConMatrix)
+  
+  return(fold_Accuracy)
+}
+)
+All_pred_Accuracy
+as.numeric(All_pred_Accuracy)
+mean(as.numeric(All_pred_Accuracy))
+```
+->Training_data 75%、Test_data 25%\
+->跑20次，最佳0.4、最差0.1，平均0.27，可得知準確率偏低。\
+
+父工作類別:\
+```{r echo=FALSE}
+#父工作類別
+aov_result<-aov(gmeans~Fjob,data=student_data)
+summary(aov_result)
+```
+->父親工作類別對於學生成績表現有差異。\
+事後檢定:\
+```{r echo=FALSE}
+#事後檢定:想知道誰不一樣，Tukey可以同時滿足比較才不會一直損失信心水準
+TukeyResult <- TukeyHSD(aov_result,conf.level = .99)
+```
+->從事教師職業和從事其他職業類型差異最大。\
+
+畫圖:\
+```{r echo=FALSE}
+par(mfrow=c(1,1))
+boxplot(student_data$gmeans~student_data$Fjob, col="lightblue",main="Fjob",ylab="")
+plot(TukeyResult, las=2)
+
+#盒形圖
+Myboxplot_stu <- function(InXidx){
+  boxplot(student_data[,InXidx]~student_data$Fjob,
+          col=c(2,3,4,5,6),
+          ylab = "",
+          xlab = "",
+          las=1, main=names(student_data)[InXidx])
+}
+par(mfrow=c(2, 2))
+lapply(c(31:34),FUN = Myboxplot_stu)
+```
+\
+->父親職業為教師相關對於學生成績表現最好。\
+->父親從事其他類型的工作對於學生成績表現最差。\
+
+knn分類預測:\
+```{r echo=FALSE}
+#分類
+TrainFlag <- sample.split(student_data$Fjob,
+                          SplitRatio = 0.75)
+stu_train <- subset(student_data,TrainFlag==TRUE)
+stu_test <- subset(student_data,TrainFlag==FALSE)
+
+table(student_data$Fjob,TrainFlag)
+
+
+NormalParam <- preProcess(stu_train[,31:34])
+stu_train_scaleByTrain <- predict(NormalParam,stu_train[,31:34])
+stu_test_scaleByTrain <- predict(NormalParam,stu_test[,31:34])
+
+stu_Fjob_predict <- knn(train = stu_train_scaleByTrain,
+                        test = stu_test_scaleByTrain,
+                        cl = factor(stu_train[,10]),
+                        k = 5,
+                        prob = TRUE)
+
+stu_test_ConMatrix <- table(stu_test$Fjob,stu_Fjob_predict)
+stu_test_Accuracy <- sum(diag(stu_test_ConMatrix))/sum(stu_test_ConMatrix)  #對角/全部加總
+#k-fold cross validation
+foldflag <- createFolds(y = student_data$Fjob,
+                        k=20)
+
+All_pred_Accuracy <- lapply(foldflag,FUN = function(dataidx){
+  fold_train <- student_data[-dataidx,]
+  fold_test <- student_data[dataidx,]
+  fold_pred <- knn(train = fold_train[,31:34],
+                   test = fold_test[,31:34],
+                   cl = fold_train[,10],
+                   k = 5,
+                   prob = TRUE)
+  fold_ConMatrix <- table(fold_test[,10],fold_pred)
+  fold_Accuracy <- sum(diag(fold_ConMatrix))/sum(fold_ConMatrix)
+  
+  return(fold_Accuracy)
+}
+)
+All_pred_Accuracy
+as.numeric(All_pred_Accuracy)
+mean(as.numeric(All_pred_Accuracy))
+```
+->Training_data 75%、Test_data 25%\
+->跑20次，最佳0.65、最差0.17，平均0.43，準確度較前者高。\
+\
+
+<font size=4><font color="blue">**小結** </font></font>\
+1. 從二元類型欄位檢定可以看出性別&居住地對學生數學成績表現皆有影響:\
+        ->男生高於女生、居住於城市高於鄉村\
+2. 從類別型欄位檢定可以看出母親職業別為「健康護理相關」、父親為「教師」，對於學生成績表現最佳。\
+3. 父親的職業別比起母親更容易影響學生成績。\
+4. 接著畫出關聯性規則分析影響成績表現之組合。\
+</div>
+
+# 關聯性規則分析 {data-icon="fa-bar-chart"}
+<div class="scrollable">
+觀察資料分佈&轉換資料grade->level:\
+```{r echo=FALSE}
+####Assoiciation Rule####
+#轉換資料grade->level
+boxplot(student_data$gmeans, horizontal = TRUE, col="lightblue",main="gmeans")
+glevel <- c()
+grade_level <- function(InXidx){
+  if(student_data[InXidx,34]<=5){
+    glevel <- c(glevel, "level1")
+  }else if(5<student_data[InXidx,34] && student_data[InXidx,34]<=10){
+    glevel <- c(glevel, "level2")
+  }else if(10<student_data[InXidx,34] && student_data[InXidx,34]<=15){
+    glevel <- c(glevel, "level3")
+  }else{
+    glevel <- c(glevel, "level4")
+  }
+}
+lg <- length(student_data$gmeans)
+glevel <- sapply(c(1:lg),FUN = grade_level)
+glevel
+student_data <- cbind(student_data,glevel)
+View(student_data)
+```
+->成績平均值分佈範圍為0\~20，主要集中在6\~14區間內，因為要區分成績表現，故level取:\
+0\~5   (level1)\
+6\~10  (level2)\
+11\~15  (level3)\
+16\~20  (level4)\
+\
+觀察資料分佈&轉換資料age->level:\
+```{r echo=FALSE}
+#轉換資料age->level
+boxplot(student_data$age, horizontal = TRUE, col="lightblue",main="age")
+agelevel <- c()
+age_level <- function(InXidx){
+  if(student_data[InXidx,3]<=17){
+    agelevel <- c(agelevel, "15~17y")
+  }else if(17<student_data[InXidx,3] && student_data[InXidx,3]<=19){
+    agelevel <- c(agelevel, "18~19y")
+  }else{
+    agelevel <- c(agelevel, "20~22y")
+  }
+}
+agelevel <- sapply(c(1:lg),FUN = age_level)
+#length(agelevel)
+agelevel
+student_data <- cbind(student_data,agelevel)
+View(student_data)
+```
+->年齡分佈範圍在15\~22，且多集中在1\6~18區間，因為想區分中學和大學生(大\~大二、大三\~大四)，故level取:\
+15\~17歲\
+18\~19歲\
+20\~22歲\
+\
+觀察資料分佈&轉換資料absences->level:\
+```{r echo=FALSE}
+#轉換資料absences->level
+#par(mfrow=c(1, 1))
+boxplot(student_data$absences, horizontal = TRUE, col="lightblue",main="absences")
+abslevel <- c()
+abs_level <- function(InXidx){
+  if(student_data[InXidx,30]<=3){
+    abslevel <- c(abslevel, "0~3")
+  }else if(3<student_data[InXidx,30] && student_data[InXidx,30]<=6){
+    abslevel <- c(abslevel, "4~6")
+  }else if(6<student_data[InXidx,30] && student_data[InXidx,30]<=10){
+    abslevel <- c(abslevel, "7~10")
+  }else{
+    abslevel <- c(abslevel, "11up")
+  }
+}
+abslevel <- sapply(c(1:lg),FUN = abs_level)
+length(abslevel)
+student_data <- cbind(student_data,abslevel)
+View(student_data)
+```
+->缺席堂數雖區間為0~95，但資料集內最大值為75堂，且從中位數和Q1\~Q3來看，資料多集中在10以下，故level取:\
+缺席0\~3堂\
+缺席4\~6堂\
+缺席7\~10堂\
+缺席11堂以上\
+
+整理資料:\
+```{r echo=FALSE}
+#rule-整理資料
+student_data2 <- student_data[,c(1:2,4:29,35:37)]
+View(student_data2)
+for(x in 1:31){
+  student_data2[,x] <- as.factor(student_data2[,x])
+}
+str(student_data2)
+```
+將所有變數轉成Factor型態，\
+並去掉原先沒轉成區間的數值型欄位，加入轉換過的欄位，以便做關聯性規則分析。\
+\
+產生規則並畫圖:\
+```{r echo=FALSE}
+#rule
+rules <- apriori(student_data2, 
+                # min support & confidence, 最小規則長度(lhs+rhs)
+                parameter = list(minlen=2, supp=0.3, conf=0.5),  
+                appearance = list(default="lhs",
+                                  rhs=c("glevel=level1", "glevel=level2", "glevel=level3", "glevel=level4") 
+                                  # 右手邊顯示的特徵
+                )
+) 
+#inspect(rules)
+sort.rules <- sort(rules, by="lift")
+inspect(sort.rules)
+plot(sort.rules)
+plot(head(sort(rules,
+               by = "lift"),
+          n=8),
+     method = "graph",
+     engine = "htmlwidget")
+```
+因support值取到0.2以下會有大於1000筆的規則，\
+故取0.3，跑出8筆規則，lift值在1.15以上。\
+且可觀察到規則大多指向level3(成績分佈在11\~15分)。\
+\
+從規則圖可以看出「過去課程失敗數量為0、沒有額外的教育支持、想接受高等教育和家中有網路」會使得學生成績表現較高。\
+(因資料集成績多分佈在6\~14分內，level3為11\~15故得出此論點)\
+\
+產生glevel2的規則並畫圖:\
+```{r echo=FALSE}
+#rule->glevel2
+rules <- apriori(student_data2, 
+                 # min support & confidence, 最小規則長度(lhs+rhs)
+                 parameter = list(minlen=2, supp=0.1, conf=0.5),  
+                 appearance = list(default="lhs",
+                                   rhs=c("glevel=level2") 
+                                   # 右手邊顯示的特徵
+                 )
+) 
+#inspect(rules)
+sort.rules <- sort(rules, by="lift")
+inspect(sort.rules)
+plot(head(sort(rules,
+               by = "lift"),
+          n=8),
+     method = "graph",
+     engine = "htmlwidget")
+plot(sort.rules)
+```
+support值取到0.1才有規則，跑出32筆，lift值在1.3以上。\
+從規則圖可以看出「性別為女生、年齡為15\~17y、一週自主讀書時間較少(2\~5小時)和就讀GP學校」會使得學生成績表現較低。\
+(因資料集成績多分佈在6\~14分，level2為6\~10分故得出此論點)。\
+\
+產生glevel1的規則:\
+```{r echo=FALSE}
+#rule->glevel1
+rules <- apriori(student_data2, 
+                 # min support & confidence, 最小規則長度(lhs+rhs)
+                 parameter = list(minlen=2, supp=0.1, conf=0.5),  
+                 appearance = list(default="lhs",
+                                   rhs=c("glevel=level1") 
+                                   # 右手邊顯示的特徵
+                 )
+) 
+inspect(rules)
+rules
+```
+規則數為0。\
+產生glevel4的規則:\
+```{r echo=FALSE}
+#rule->glevel4
+rules <- apriori(student_data2, 
+                 # min support & confidence, 最小規則長度(lhs+rhs)
+                 parameter = list(minlen=2, supp=0.1, conf=0.5),  
+                 appearance = list(default="lhs",
+                                   rhs=c("glevel=level4") 
+                                   # 右手邊顯示的特徵
+                 )
+) 
+inspect(rules)
+rules
+```
+規則數為0。\
+<font size=4><font color="blue">**小結** </font></font>\
+1.  因成績在level1和level4的資料較少，且support值取到0.1仍找不出規則，故以成績分佈在level2\~3為主。\
+2.  從前述規則可以看出「過去課程失敗數量為0、沒有額外的教育支持、想接受高等教育和家中有網路」會是成績表現較高之因素。\
+3.  而「性別為女生、中學生(年齡為15\~17y)、一週自主讀書時間較少(2\~5小時)和就讀GP學校」會使得學生成績表現較低。\
+\
+</div>
+
+# 結論 {data-icon="fa-hand-o-right"}
+<font size=5>**結論**</font>\
+<font color="blue">1.   **性別影響成績：**</font>女性在數學成績表現上較低。\
+<font color="blue">2.   **家庭背景影響成績：**</font>家庭背景(父母親教育程度&職業)是影響學生數學成績表現的重要因素。\
+<font color="blue">3.   **家長職業：**</font>家中有教師職業的父親可為學生成績帶來提升，推測可能為管教嚴且會教導小孩學習。\
+<font color="blue">4.   **學生本身意願：**</font>學生本身想持續升學與家中有網路會提高學生成績，推測是因為學生自學興趣高且有網路資源可學習。\
+<font color="blue">5.   **課程難度&年紀：**</font>自主學習時間少且年紀較低會使成績表現差，推測可能原因為教學內容對於低年級學生來說難度較高。\
